@@ -28,16 +28,16 @@ use LogicException;
 use RuntimeException;
 use Syscodes\Components\Support\Arr;
 use Syscodes\Components\Support\Str;
-use Syscodes\Components\Http\Utilities\Files;
-use Syscodes\Components\Http\Utilities\Inputs;
-use Syscodes\Components\Http\Utilities\Server;
-use Syscodes\Components\Http\Utilities\Headers;
-use Syscodes\Components\Http\Request\RequestUtils;
-use Syscodes\Components\Http\Utilities\Parameters;
-use Syscodes\Components\Http\Request\RequestClientIP;
+use Syscodes\Components\Http\Loaders\Files;
+use Syscodes\Components\Http\Loaders\Inputs;
+use Syscodes\Components\Http\Loaders\Server;
+use Syscodes\Components\Http\Loaders\Headers;
+use Syscodes\Components\Http\Loaders\Parameters;
+use Syscodes\Components\Http\Helpers\RequestUtils;
+use Syscodes\Components\Http\Resources\HttpRequest;
+use Syscodes\Components\Http\Helpers\RequestClientIP;
 use Syscodes\Components\Http\Resources\HttpResources;
 use Syscodes\Components\Http\Session\SessionDecorator;
-use Syscodes\Components\Http\Session\SessionInterface;
 use Syscodes\Components\Http\Concerns\CanBePrecognitive;
 use Syscodes\Components\Http\Concerns\InteractsWithInput;
 use Syscodes\Components\Http\Concerns\InteractsWithContentTypes;
@@ -48,24 +48,11 @@ use Syscodes\Components\Http\Exceptions\SessionNotFoundException;
  */
 class Request
 {
-	use CanBePrecognitive,
+	use HttpRequest,
 	    HttpResources,
+	    CanBePrecognitive,	    
 	    InteractsWithInput,
 	    InteractsWithContentTypes;
-
-	/**
-	 * Get the http method parameter.
-	 * 
-	 * @var bool $httpMethodParameterOverride
-	 */
-	protected static $httpMethodParameterOverride = false;
-
-	/**
-	 * Holds the global active request instance.
-	 *
-	 * @var bool $requestURI
-	 */
-	protected static $requestURI;
 
 	/**
 	 * Get the acceptable of content types.
@@ -77,7 +64,7 @@ class Request
 	/**
 	 * Get the custom parameters.
 	 * 
-	 * \Syscodes\Components\Http\Utilities\Parameters $attributes
+	 * @var \Syscodes\Components\Http\Loaders\Parameters $attributes
 	 */
 	public $attributes;
 
@@ -98,7 +85,7 @@ class Request
 	/**
 	 * Gets cookies ($_COOKIE).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Inputs $cookies
+	 * @var \Syscodes\Components\Http\Loaders\Inputs $cookies
 	 */
 	public $cookies;
 
@@ -119,21 +106,21 @@ class Request
 	/**
 	 * Gets files request ($_FILES).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Files $files
+	 * @var \Syscodes\Components\Http\Loaders\Files $files
 	 */
 	public $files;
 	
 	/**
 	 * Get the headers request ($_SERVER).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Headers $headers
+	 * @var \Syscodes\Components\Http\Loaders\Headers $headers
 	 */
 	public $headers;
 
 	/**
 	 * The decoded JSON content for the request.
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Parameters|null $json
+	 * @var \Syscodes\Components\Http\Loaders\Parameters|null $json
 	 */
 	protected $json;
 
@@ -168,14 +155,14 @@ class Request
 	/**
 	 * Query string parameters ($_GET).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Parameters $query
+	 * @var \Syscodes\Components\Http\Loaders\Parameters $query
 	 */
 	public $query;
 
 	/**
 	 * Request body parameters ($_POST).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Parameters $request
+	 * @var \Syscodes\Components\Http\Loaders\Parameters $request
 	 */
 	public $request;
 
@@ -203,14 +190,14 @@ class Request
 	/**
 	 * The detected uri and server variables ($_SERVER).
 	 * 
-	 * @var \Syscodes\Components\Http\Utilities\Server $server
+	 * @var \Syscodes\Components\Http\Loaders\Server $server
 	 */
 	public $server;
 
 	/** 
 	 * List of routes uri.
 	 *
-	 * @var string|array|object $uri 
+	 * @var \Syscodes\Components\Http\URI $uri 
 	 */
 	public $uri;
 
@@ -290,94 +277,6 @@ class Request
 	}
 
 	/**
-	 * Create a new Syscodes HTTP request from server variables.
-	 * 
-	 * @return static
-	 */
-	public static function capture(): static
-	{
-		static::enabledHttpMethodParameterOverride();
-		
-		return static::createFromRequest(static::createFromRequestGlobals());
-	}
-
-	/**
-	 * Creates an Syscodes request from of the Request class instance.
-	 * 
-	 * @param  \Syscodes\Components\Http\Request  $request
-	 * 
-	 * @return static
-	 */
-	public static function createFromRequest(Request $request): static
-	{
-		$newRequest = (new static)->duplicate(
-			$request->query->all(), $request->request->all(), $request->attributes->all(),
-			$request->cookies->all(), $request->files->all(), $request->server->all()
-		);
-		
-		$newRequest->headers->replace($request->headers->all());
-		
-		$newRequest->content = $request->content;
-		
-		if ($newRequest->isJson()) {
-			$newRequest->request = $newRequest->json();
-		}
-		
-		return $newRequest;
-	}
-
-	/**
-	 * Creates a new request with value from PHP's super global.
-	 * 
-	 * @return static
-	 */
-	public static function createFromRequestGlobals(): static
-	{
-		$request = static::createFromRequestFactory($_GET, $_POST, [], $_COOKIE, $_FILES, $_SERVER);
-
-		if (Str::startsWith($request->headers->get('CONTENT_TYPE', ''), 'application/x-www-form-urlencoded')
-		    && in_array(strtoupper($request->server->get('REQUEST_METHOD', 'GET')), ['PUT', 'DELETE', 'PATCH'])) {
-			parse_str($request->getContent(), $data);
-			$request->request = new Inputs($data);
-		}
-
-		return $request;
-	}
-
-	/**
-	 * Creates a new request from a factory.
-	 * 
-	 * @param  array  $query
-	 * @param  array  $request
-	 * @param  array  $attributes
-	 * @param  array  $cookies
-	 * @param  array  $files
-	 * @param  array  $server
-	 * 
-	 * @return static
-	 */
-	private static function createFromRequestFactory(
-		array $query = [], 
-		array $request = [],
-		array $attributes = [] ,
-		array $cookies = [], 
-		array $files = [], 
-		array $server = []
-	): static {
-		if (self::$requestURI) {
-			$request = (self::$requestURI)($query, $request, [], $cookies, $files, $server);
-
-			if ( ! $request instanceof self) {
-				throw new LogicException('The Request active must return an instance of Syscodes\Components\Http\Request');
-			}
-
-			return $request;
-		}
-
-		return new static($query, $request, $attributes, $cookies, $files, $server);
-	}
-
-	/**
 	 * Clones a request and overrides some of its parameters.
 	 * 
 	 * @param  array|null  $query
@@ -433,18 +332,6 @@ class Request
 		$duplicate->clientIp = new RequestClientIP($duplicate->server->all());
 
 		return $duplicate;		
-	}
-
-	/**
-	 * Returns the factory request currently being used.
-	 *
-	 * @param  \Syscodes\Components\Http\Request|callable|null  $request  
-	 *
-	 * @return void
-	 */
-	public static function setFactory(?callable $request): void
-	{
-		self::$requestURI = $request;
 	}
 
 	/**
@@ -559,26 +446,6 @@ class Request
 	}
 
 	/**
-     * Enables support for the _method request parameter to determine the intended HTTP method.
-     * 
-     * @return void
-     */
-    public static function enabledHttpMethodParameterOverride(): void
-    {
-        self::$httpMethodParameterOverride = true;
-    }
-	
-	/**
-	 * Checks whether support for the _method request parameter is enabled.
-	 * 
-	 * @return bool
-	 */
-	public static function getHttpMethodParameterOverride(): bool
-	{
-		return self::$httpMethodParameterOverride;
-	}
-
-	/**
 	 * Gets the Session.
 	 * 
 	 * @return \Syscodes\Components\Http\Session\SessionInterface
@@ -656,9 +523,9 @@ class Request
 	 * 
 	 * @param  \Syscodes\Components\Http\Utilities\Parameters  $json
 	 * 
-	 * @return self
+	 * @return static
 	 */
-	public function setJson($json): self
+	public function setJson($json): static
 	{
 		$this->json = $json;
 
@@ -733,6 +600,16 @@ class Request
 	{
 		return $this->getMethod() === strtoupper($method);
 	}
+
+	/**
+     * Alias of the request method.
+     * 
+     * @return string
+     */
+    public function method(): string
+    {
+        return $this->getMethod();
+    }
 
 	/**
 	 * Returns the input method used (GET, POST, DELETE, etc.).
