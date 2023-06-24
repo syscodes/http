@@ -37,6 +37,7 @@ use Syscodes\Components\Http\Utilities\Parameters;
 use Syscodes\Components\Http\Request\RequestClientIP;
 use Syscodes\Components\Http\Resources\HttpResources;
 use Syscodes\Components\Http\Session\SessionDecorator;
+use Syscodes\Components\Http\Session\SessionInterface;
 use Syscodes\Components\Http\Concerns\CanBePrecognitive;
 use Syscodes\Components\Http\Concerns\InteractsWithInput;
 use Syscodes\Components\Http\Concerns\InteractsWithContentTypes;
@@ -509,7 +510,7 @@ class Request
 	 */
 	public function getLocale(): string
 	{
-		return $this->languages ?? $this->defaultLocale;
+		return $this->languages ?: $this->defaultLocale;
 	}
 
 	/**
@@ -517,9 +518,9 @@ class Request
 	 * 
 	 * @param  string  $locale
 	 * 
-	 * @return static
+	 * @return self
 	 */
-	public function setLocale(string $locale): static
+	public function setLocale(string $locale): self
 	{
 		if ( ! in_array($locale, $this->validLocales, true)) {
 			$locale = $this->defaultLocale;
@@ -655,9 +656,9 @@ class Request
 	 * 
 	 * @param  \Syscodes\Components\Http\Utilities\Parameters  $json
 	 * 
-	 * @return static
+	 * @return self
 	 */
-	public function setJson($json): static
+	public function setJson($json): self
 	{
 		$this->json = $json;
 
@@ -1105,13 +1106,13 @@ class Request
 	/**
 	 * Returns the referer.
 	 * 
-	 * @param  string|null  $default
+	 * @param  string  $default
 	 * 
-	 * @return string|null
+	 * @return string
 	 */
-	public function referer(string $default = null): string|null
+	public function referer(string $default = ''): string
 	{
-		return $this->headers->get('HTTP_REFERER', $default);
+		return $this->server->get('HTTP_REFERER', $default);
 	}
 	
 	/**
@@ -1138,11 +1139,11 @@ class Request
 	 *
 	 * @param  string|null  $default
 	 *
-	 * @return string|null
+	 * @return string
 	 */
-	public function userAgent(string $default = null): string|null
+	public function userAgent(string $default = null): string
 	{
-		return $this->headers->get('HTTP_USER_AGENT', $default);
+		return $this->server->get('HTTP_USER_AGENT', $default);
 	}
 	
 	/**
