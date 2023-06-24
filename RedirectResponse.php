@@ -28,7 +28,7 @@ use Syscodes\Components\Http\Request;
 use Syscodes\Components\Support\MessageBag;
 use Syscodes\Components\Support\ViewErrorBag;
 use Syscodes\Components\Support\Traits\Macroable;
-use Syscodes\Components\Http\Concerns\HttpResponse;
+use Syscodes\Components\Http\Resources\HttpResponse;
 use Syscodes\Components\Support\Traits\ForwardsCalls;
 use Syscodes\Components\Session\Store as SessionStore;
 use Syscodes\Components\Contracts\Support\MessageProvider;
@@ -111,7 +111,7 @@ class RedirectResponse extends Response
      * 
      * @return static
      */
-    public static function render($url = '', $status = 302, $headers = [])
+    public static function render($url = '', $status = 302, $headers = []): static
     {
         return new static($url, $status, $headers);
     }
