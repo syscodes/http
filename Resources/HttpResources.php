@@ -30,25 +30,6 @@ use Syscodes\Components\Support\Str;
 trait HttpResources
 {
 	/**
-	 * Return's the protocol that the request was made with.
-	 *
-	 * @return string
-	 */
-	public function protocol(): string
-	{
-		if ($this->server('HTTPS') == 'on' ||
-			$this->server('HTTPS') == 1 ||
-			$this->server('SERVER_PORT') == 443 ||
-			(config('security.allow-x-headers', false) && $this->server('HTTP_X_FORWARDED_PROTO') == 'https') ||
-			(config('security.allow-x-headers', false) && $this->server('HTTP_X_FORWARDED_PORT') == 443))
-		{
-			return 'https';
-		}
-
-		return 'http';
-	}
-
-	/**
 	 * Filters a value from the start of a string in this case the passed URI string.
 	 *
 	 * @return string
