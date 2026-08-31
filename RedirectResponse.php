@@ -113,7 +113,7 @@ class RedirectResponse extends BaseRedirectResponse
      * @param  array  $input
      * @return array
      */
-    protected function removeFilesFromInput(array $input): array
+    protected function removeFilesFromInput(array $input)
     {
         foreach ($input as $key => $value) {
             if (is_array($value)) {
@@ -255,16 +255,16 @@ class RedirectResponse extends BaseRedirectResponse
      * 
      * @throws \BadMethodCallException
      */
-    public function __call($method, $parameters): mixed
+    public function __call($method, $parameters)
     {
         if ( ! static::hasMacro($method)) {
-            static::BadMethodCallException($method);
+            return $this->macroCall($method, $parameters);
         }
-        
+            
         if (Str::startsWith($method, 'with')) {
             return $this->with(Str::snake(substr($method, 4)), $parameters[0]);
         }
-        
-        return $this->macroCall($method, $parameters);
+                
+        static::badMethodCallException($method);
     }
 }
